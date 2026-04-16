@@ -2,7 +2,7 @@
 setlocal
 
 set "USER_ID=%~1"
-if "%USER_ID%"=="" set "USER_ID=alice"
+if "%USER_ID%"=="" set "USER_ID=learner"
 
 set "ROOT=%~dp0"
 cd /d "%ROOT%"

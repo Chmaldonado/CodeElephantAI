@@ -2,7 +2,7 @@
 setlocal
 
 set "USER_ID=%~1"
-if "%USER_ID%"=="" set "USER_ID=alice"
+if "%USER_ID%"=="" set "USER_ID=learner"
 
 set "PY=.venv_local\Scripts\python.exe"
 if not exist "%PY%" (
@@ -14,4 +14,3 @@ if not exist "%PY%" (
 )
 
 "%PY%" -m tutor_agent.main tui --user-id "%USER_ID%"
-

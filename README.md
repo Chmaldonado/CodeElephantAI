@@ -1,4 +1,4 @@
-# CodeElephantAI Tutor
+﻿# CodeElephantAI Tutor
 
 Terminal-first AI coding tutor with:
 - agent orchestration
@@ -146,14 +146,14 @@ ollama pull nomic-embed-text
 6. Start tutor.
 
 ```powershell
-.\.venv_local\Scripts\python -m tutor_agent.main tui --user-id alice
+.\.venv_local\Scripts\python -m tutor_agent.main tui --user-id learner
 ```
 
 Windows shortcuts:
 
 ```cmd
-run_tui.cmd alice
-run_cli.cmd alice
+run_tui.cmd learner
+run_cli.cmd learner
 ```
 
 ## Quick Start (Docker)
@@ -167,13 +167,13 @@ run_cli.cmd alice
 2. Start panel-style terminal chat.
 
 ```powershell
-.\run_docker.ps1 -Action chat -UserId alice
+.\run_docker.ps1 -Action chat -UserId learner
 ```
 
 Other Docker actions:
 
 ```powershell
-.\run_docker.ps1 -Action chat-plain -UserId alice
+.\run_docker.ps1 -Action chat-plain -UserId learner
 .\run_docker.ps1 -Action ingest
 .\run_docker.ps1 -Action logs
 .\run_docker.ps1 -Action down
@@ -183,7 +183,7 @@ Other Docker actions:
 One-click launcher:
 
 ```cmd
-launch_all.cmd alice
+launch_all.cmd learner
 ```
 
 ## CLI Commands
@@ -192,16 +192,16 @@ From the installed package entrypoint:
 
 ```bash
 tutor ingest
-tutor chat --user-id alice
-tutor tui --user-id alice
+tutor chat --user-id learner
+tutor tui --user-id learner
 ```
 
 Direct module form:
 
 ```bash
 python -m tutor_agent.main ingest
-python -m tutor_agent.main chat --user-id alice
-python -m tutor_agent.main tui --user-id alice
+python -m tutor_agent.main chat --user-id learner
+python -m tutor_agent.main tui --user-id learner
 ```
 
 ## Terminal UI Notes

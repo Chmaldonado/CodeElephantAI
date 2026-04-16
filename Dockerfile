@@ -12,4 +12,4 @@ COPY data ./data
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -e .
 
-CMD ["python", "-m", "tutor_agent.main", "chat", "--user-id", "alice"]
+CMD ["python", "-m", "tutor_agent.main", "chat", "--user-id", "learner"]

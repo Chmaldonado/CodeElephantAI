@@ -33,7 +33,7 @@ services:
       - app_runtime:/app/runtime
     stdin_open: true
     tty: true
-    command: ["python", "-m", "tutor_agent.main", "chat", "--user-id", "alice"]
+    command: ["python", "-m", "tutor_agent.main", "chat", "--user-id", "learner"]
 
 volumes:
   ollama_data:

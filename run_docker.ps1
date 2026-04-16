@@ -1,7 +1,7 @@
 param(
     [ValidateSet("up", "down", "ingest", "chat", "chat-plain", "logs")]
     [string]$Action = "up",
-    [string]$UserId = "alice",
+    [string]$UserId = "learner",
     [switch]$ForcePullModels
 )
 

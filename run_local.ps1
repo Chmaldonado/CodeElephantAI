@@ -1,5 +1,5 @@
 param(
-    [string]$UserId = "alice",
+    [string]$UserId = "learner",
     [switch]$SkipIngest,
     [switch]$IngestOnly,
     [switch]$SkipModelChecks
@@ -35,4 +35,3 @@ if ($IngestOnly) {
 
 Write-Host "Starting tutor chat as user '$UserId'..." -ForegroundColor Green
 & $Python -m tutor_agent.main chat --user-id $UserId
-
