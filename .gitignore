@@ -1,0 +1,31 @@
+# Secrets
+.env
+.env.*
+.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Virtual environments
+.venv/
+.venv_local/
+venv/
+env/
+
+# Packaging/build
+*.egg-info/
+build/
+dist/
+
+# Tooling/editor
+.vscode/
+.idea/
+.DS_Store
+
+# Runtime data (keep source docs, ignore generated stores)
+data/chroma/
+data/memory.db
