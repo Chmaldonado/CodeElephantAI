@@ -1,0 +1,9 @@
+.venv
+.venv_local
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.git
+.gitignore
+code_elephant_ai_tutor.egg-info

@@ -1,0 +1,40 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: tutor-ollama
+    gpus: all
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  tutor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tutor-app
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      TUTOR_MODEL: llama3.1:8b
+      EMBEDDING_MODEL: nomic-embed-text
+      CHROMA_DIR: /app/runtime/chroma
+      MEMORY_DB: /app/runtime/memory.db
+      DOCS_DIR: /app/data/docs
+      TOP_K: "4"
+      MAX_AGENT_STEPS: "6"
+    volumes:
+      - app_runtime:/app/runtime
+    stdin_open: true
+    tty: true
+    command: ["python", "-m", "tutor_agent.main", "chat", "--user-id", "alice"]
+
+volumes:
+  ollama_data:
+  app_runtime:
