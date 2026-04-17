@@ -59,7 +59,7 @@ query -> embed -> top-k semantic retrieval -> injected into planning context
 - `tutor_agent/llm.py`
   - Ollama chat + JSON response parsing
 - `tutor_agent/main.py`
-  - CLI commands: `chat`, `tui`, `ingest`
+  - CLI commands: `chat`, `tui`, `ingest`, `topics`
 
 ## Tools Used (Current Stack)
 
@@ -107,7 +107,7 @@ launch_all.cmd
 ### Optional
 
 - Docker Desktop (for containerized workflow)
-- NVIDIA GPU + Docker GPU support (if using GPU in Docker)
+- NVIDIA GPU + Docker GPU support (if using GPU mode)
 
 ## Quick Start (Local, No Docker)
 
@@ -124,10 +124,19 @@ python -m venv .venv_local
 .\.venv_local\Scripts\python -m pip install -e .
 ```
 
-3. Copy environment config.
+3. Create `.env` with your local settings.
 
 ```powershell
-Copy-Item .env.example .env
+@"
+OLLAMA_HOST=http://127.0.0.1:11434
+TUTOR_MODEL=llama3.1:8b
+EMBEDDING_MODEL=nomic-embed-text
+CHROMA_DIR=./data/chroma
+MEMORY_DB=./data/memory.db
+DOCS_DIR=./data/docs
+TOP_K=4
+MAX_AGENT_STEPS=6
+"@ | Set-Content .env
 ```
 
 4. Pull required Ollama models.
@@ -164,6 +173,12 @@ run_cli.cmd learner
 .\run_docker.ps1 -Action up
 ```
 
+GPU mode (optional):
+
+```powershell
+.\run_docker.ps1 -Action up -UseGpu
+```
+
 2. Start panel-style terminal chat.
 
 ```powershell
@@ -175,10 +190,13 @@ Other Docker actions:
 ```powershell
 .\run_docker.ps1 -Action chat-plain -UserId learner
 .\run_docker.ps1 -Action ingest
+.\run_docker.ps1 -Action topics -UserId learner
 .\run_docker.ps1 -Action logs
 .\run_docker.ps1 -Action down
 .\run_docker.ps1 -Action up -ForcePullModels
 ```
+
+To run any Docker action in GPU mode, append `-UseGpu`.
 
 One-click launcher:
 
@@ -194,6 +212,7 @@ From the installed package entrypoint:
 tutor ingest
 tutor chat --user-id learner
 tutor tui --user-id learner
+tutor topics --user-id learner
 ```
 
 Direct module form:
@@ -202,6 +221,7 @@ Direct module form:
 python -m tutor_agent.main ingest
 python -m tutor_agent.main chat --user-id learner
 python -m tutor_agent.main tui --user-id learner
+python -m tutor_agent.main topics --user-id learner
 ```
 
 ## Terminal UI Notes
@@ -210,6 +230,7 @@ In `tui` mode:
 - `/help` shows commands
 - `/quit` exits
 - `/paste [lang]` enters multi-line paste mode
+- `/topics` shows tracked discussed topics
 - finish paste mode with a line containing only `EOF`
 
 `/paste` wraps input in fenced markdown blocks before sending to the tutor.
@@ -256,6 +277,7 @@ Environment variables (`.env`):
 ## Known Limitations
 
 - Code execution tool currently supports only Python.
+- Code execution uses basic safety guards, not full container sandboxing.
 - Planner relies on JSON parsing from model output, which can occasionally fail.
 - No auth/multi-tenant isolation yet (single local environment assumptions).
 - No web interface in this branch (terminal-first only).
@@ -271,6 +293,7 @@ Environment variables (`.env`):
   - add docs to `data/docs` and rerun ingest
 - Docker GPU not used:
   - verify NVIDIA driver + Docker Desktop GPU support + WSL2 backend
+  - run Docker commands with `-UseGpu`
 
 ## Suggested Next Upgrades
 

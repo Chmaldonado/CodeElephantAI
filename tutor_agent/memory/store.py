@@ -25,6 +25,17 @@ class MemoryStore:
             )
             """
         )
+        self.conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS discussed_topics (
+                user_id TEXT NOT NULL,
+                topic TEXT NOT NULL,
+                mentions INTEGER NOT NULL DEFAULT 1,
+                last_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, topic)
+            )
+            """
+        )
         self.conn.commit()
 
     def get_user_progress(self, user_id: str) -> dict[str, Any]:
@@ -75,3 +86,45 @@ class MemoryStore:
         self.conn.commit()
         return self.get_user_progress(user_id)
 
+    def record_discussed_topics(self, user_id: str, topics: list[str]) -> None:
+        clean_topics = sorted(
+            {
+                str(topic).strip().lower()
+                for topic in topics
+                if str(topic).strip()
+            }
+        )
+        if not clean_topics:
+            return
+
+        self.conn.executemany(
+            """
+            INSERT INTO discussed_topics (user_id, topic, mentions)
+            VALUES (?, ?, 1)
+            ON CONFLICT(user_id, topic) DO UPDATE SET
+                mentions = discussed_topics.mentions + 1,
+                last_seen = CURRENT_TIMESTAMP
+            """,
+            [(user_id, topic) for topic in clean_topics],
+        )
+        self.conn.commit()
+
+    def get_discussed_topics(self, user_id: str, limit: int = 20) -> list[dict[str, Any]]:
+        rows = self.conn.execute(
+            """
+            SELECT topic, mentions, last_seen
+            FROM discussed_topics
+            WHERE user_id = ?
+            ORDER BY mentions DESC, last_seen DESC
+            LIMIT ?
+            """,
+            (user_id, max(1, int(limit))),
+        ).fetchall()
+        return [
+            {
+                "topic": row["topic"],
+                "mentions": row["mentions"],
+                "last_seen": row["last_seen"],
+            }
+            for row in rows
+        ]

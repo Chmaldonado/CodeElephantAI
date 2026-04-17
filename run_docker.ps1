@@ -1,11 +1,16 @@
 param(
-    [ValidateSet("up", "down", "ingest", "chat", "chat-plain", "logs")]
+    [ValidateSet("up", "down", "ingest", "chat", "chat-plain", "topics", "logs")]
     [string]$Action = "up",
     [string]$UserId = "learner",
-    [switch]$ForcePullModels
+    [switch]$ForcePullModels,
+    [switch]$UseGpu
 )
 
 $ErrorActionPreference = "Stop"
+$ComposeArgs = @("-f", "docker-compose.yml")
+if ($UseGpu) {
+    $ComposeArgs += @("-f", "docker-compose.gpu.yml")
+}
 
 function Ensure-Model {
     param(
@@ -35,25 +40,33 @@ function Ensure-RequiredModels {
 
 switch ($Action) {
     "up" {
-        docker compose up -d --remove-orphans ollama
+        docker compose @ComposeArgs up -d --remove-orphans ollama
         Ensure-RequiredModels
-        docker compose run --rm tutor python -m tutor_agent.main ingest
+        docker compose @ComposeArgs run --rm --build tutor python -m tutor_agent.main ingest
         Write-Host "Docker stack is ready. Start chat with:" -ForegroundColor Green
-        Write-Host "  .\run_docker.ps1 -Action chat -UserId $UserId"
+        if ($UseGpu) {
+            Write-Host "  .\run_docker.ps1 -Action chat -UserId $UserId -UseGpu"
+        }
+        else {
+            Write-Host "  .\run_docker.ps1 -Action chat -UserId $UserId"
+        }
     }
     "chat" {
-        docker compose run --rm --build tutor python -m tutor_agent.main tui --user-id $UserId
+        docker compose @ComposeArgs run --rm --build tutor python -m tutor_agent.main tui --user-id $UserId
     }
     "chat-plain" {
-        docker compose run --rm --build tutor python -m tutor_agent.main chat --user-id $UserId
+        docker compose @ComposeArgs run --rm --build tutor python -m tutor_agent.main chat --user-id $UserId
     }
     "ingest" {
-        docker compose run --rm --build tutor python -m tutor_agent.main ingest
+        docker compose @ComposeArgs run --rm --build tutor python -m tutor_agent.main ingest
     }
     "logs" {
-        docker compose logs -f ollama
+        docker compose @ComposeArgs logs -f ollama
+    }
+    "topics" {
+        docker compose @ComposeArgs run --rm --build tutor python -m tutor_agent.main topics --user-id $UserId
     }
     "down" {
-        docker compose down --remove-orphans
+        docker compose @ComposeArgs down --remove-orphans
     }
 }

@@ -2,7 +2,6 @@ services:
   ollama:
     image: ollama/ollama:latest
     container_name: tutor-ollama
-    gpus: all
     volumes:
       - ollama_data:/root/.ollama
     healthcheck:
