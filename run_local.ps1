@@ -20,7 +20,22 @@ if (-not (Test-Path $Python)) {
 
 if (-not $SkipModelChecks) {
     Write-Host "Checking required Ollama models..." -ForegroundColor Cyan
-    & $Python -c "from ollama import Client; c=Client(host='http://127.0.0.1:11434'); c.show('nomic-embed-text'); c.show('llama3.1:8b'); print('Ollama model check passed')"
+    $models = & ollama list 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Could not query Ollama models. Is Ollama running?" -ForegroundColor Red
+        exit 1
+    }
+    $joined = ($models -join "`n")
+    if ($joined -notmatch "llama3\.1:8b") {
+        Write-Host "Missing model: llama3.1:8b" -ForegroundColor Red
+        Write-Host "Run: ollama pull llama3.1:8b" -ForegroundColor Yellow
+        exit 1
+    }
+    if ($joined -notmatch "nomic-embed-text") {
+        Write-Host "Missing model: nomic-embed-text" -ForegroundColor Red
+        Write-Host "Run: ollama pull nomic-embed-text" -ForegroundColor Yellow
+        exit 1
+    }
 }
 
 if (-not $SkipIngest) {
@@ -33,5 +48,5 @@ if ($IngestOnly) {
     exit 0
 }
 
-Write-Host "Starting tutor chat as user '$UserId'..." -ForegroundColor Green
-& $Python -m tutor_agent.main chat --user-id $UserId
+Write-Host "Starting tutor AIM mode as user '$UserId'..." -ForegroundColor Green
+& $Python -m tutor_agent.main aim --user-id $UserId

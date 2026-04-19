@@ -14,6 +14,7 @@ class MemoryStore:
         self._init_schema()
 
     def _init_schema(self) -> None:
+        # learner profile + high-level progress snapshot
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS user_progress (
@@ -25,6 +26,7 @@ class MemoryStore:
             )
             """
         )
+        # denormalized topic counter for quick "what did we discuss?" lookups
         self.conn.execute(
             """
             CREATE TABLE IF NOT EXISTS discussed_topics (
@@ -60,6 +62,7 @@ class MemoryStore:
         current = self.get_user_progress(user_id)
         merged = {**current, **patch}
 
+        # Keep topic arrays deterministic for stable diffs and output.
         if "known_topics" in merged and isinstance(merged["known_topics"], list):
             merged["known_topics"] = sorted(set(str(x) for x in merged["known_topics"]))
         if "struggled_topics" in merged and isinstance(merged["struggled_topics"], list):
@@ -97,6 +100,7 @@ class MemoryStore:
         if not clean_topics:
             return
 
+        # UPSERT increments mention count without requiring a read-modify-write cycle.
         self.conn.executemany(
             """
             INSERT INTO discussed_topics (user_id, topic, mentions)

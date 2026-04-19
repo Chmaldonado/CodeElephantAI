@@ -17,21 +17,28 @@ class TutorOrchestrator:
         self.max_steps = max_steps
         self.tools = tools
         self.history: list[dict[str, str]] = []
+        self.history_limit = 40
+
+    def _append_history(self, role: str, content: str) -> None:
+        self.history.append({"role": role, "content": content})
+        if len(self.history) > self.history_limit:
+            self.history = self.history[-self.history_limit :]
 
     @staticmethod
-    def _compact(data: Any, max_chars: int = 3500) -> str:
+    def _compact(data: Any, max_chars: int = 1800) -> str:
         text = json.dumps(data, ensure_ascii=True, default=str)
         if len(text) <= max_chars:
             return text
         return text[:max_chars] + "...(truncated)"
 
     def _plan_step(self, user_id: str, user_message: str, tool_results: list[ToolResult]) -> AgentAction:
+        # Keep planning context bounded so each step stays fast and predictable.
         tools_list = "\n".join(f"- {name}" for name in self.tools.keys())
         transcript = "\n".join(
-            [f"{m['role'].upper()}: {m['content']}" for m in self.history[-8:]]
+            [f"{m['role'].upper()}: {m['content']}" for m in self.history[-6:]]
         )
         tool_context = "\n".join(
-            [f"{r.tool_name}: {self._compact(r.result)}" for r in tool_results[-4:]]
+            [f"{r.tool_name}: {self._compact(r.result)}" for r in tool_results[-2:]]
         )
         user_prompt = f"""
 User id: {user_id}
@@ -50,17 +57,19 @@ Recent tool results:
             parsed = self.llm.chat_json(system_prompt=SYSTEM_PROMPT, user_prompt=user_prompt)
             return AgentAction.model_validate(parsed)
         except Exception:
+            # Fail closed to a direct response if planning JSON is malformed.
             return AgentAction(action="respond", response="I hit a planning error. Please try again.")
 
     def run_turn(self, user_id: str, user_message: str) -> str:
-        self.history.append({"role": "user", "content": user_message})
+        self._append_history(role="user", content=user_message)
         tool_results: list[ToolResult] = []
 
+        # Agent loop: plan -> maybe call tool -> repeat until model returns "respond".
         for _ in range(self.max_steps):
             action = self._plan_step(user_id=user_id, user_message=user_message, tool_results=tool_results)
             if action.action == "respond":
                 text = action.response or "I do not have a response yet."
-                self.history.append({"role": "assistant", "content": text})
+                self._append_history(role="assistant", content=text)
                 return text
 
             if action.action == "tool":
@@ -77,6 +86,7 @@ Recent tool results:
                     )
                     continue
                 try:
+                    # Tool results are appended as planner context for the next step.
                     result = tool(**args)
                     tool_results.append(ToolResult(tool_name=tool_name, ok=True, result=result))
                 except Exception as exc:
@@ -87,5 +97,5 @@ Recent tool results:
             "I reached the maximum planning steps. "
             "Please ask again and I will answer directly or with fewer tool calls."
         )
-        self.history.append({"role": "assistant", "content": fallback})
+        self._append_history(role="assistant", content=fallback)
         return fallback

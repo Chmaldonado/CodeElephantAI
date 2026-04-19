@@ -20,6 +20,14 @@ class Settings:
     max_agent_steps: int
 
 
+def _get_int_env(name: str, default: int) -> int:
+    raw = os.getenv(name, str(default)).strip()
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return default
+
+
 def get_settings() -> Settings:
     return Settings(
         ollama_host=os.getenv("OLLAMA_HOST", "http://127.0.0.1:11434"),
@@ -28,6 +36,6 @@ def get_settings() -> Settings:
         chroma_dir=os.getenv("CHROMA_DIR", "./data/chroma"),
         memory_db=os.getenv("MEMORY_DB", "./data/memory.db"),
         docs_dir=os.getenv("DOCS_DIR", "./data/docs"),
-        top_k=int(os.getenv("TOP_K", "4")),
-        max_agent_steps=int(os.getenv("MAX_AGENT_STEPS", "6")),
+        top_k=max(1, _get_int_env("TOP_K", 3)),
+        max_agent_steps=max(1, _get_int_env("MAX_AGENT_STEPS", 4)),
     )

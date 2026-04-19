@@ -61,6 +61,7 @@ class ExecuteCodeTool:
                 }
             )
             try:
+                # Use isolated mode (-I) and a temp cwd to reduce accidental host coupling.
                 completed = subprocess.run(
                     [sys.executable, "-I", str(file_path)],
                     capture_output=True,

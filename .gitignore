@@ -20,6 +20,7 @@ env/
 *.egg-info/
 build/
 dist/
+release/
 
 # Tooling/editor
 .vscode/

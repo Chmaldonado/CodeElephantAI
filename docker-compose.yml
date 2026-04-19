@@ -26,8 +26,8 @@ services:
       CHROMA_DIR: /app/runtime/chroma
       MEMORY_DB: /app/runtime/memory.db
       DOCS_DIR: /app/data/docs
-      TOP_K: "4"
-      MAX_AGENT_STEPS: "6"
+      TOP_K: "3"
+      MAX_AGENT_STEPS: "4"
     volumes:
       - app_runtime:/app/runtime
     stdin_open: true

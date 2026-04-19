@@ -1,16 +1,6 @@
 @echo off
 setlocal
 
-set "USER_ID=%~1"
-if "%USER_ID%"=="" set "USER_ID=learner"
-
-set "PY=.venv_local\Scripts\python.exe"
-if not exist "%PY%" (
-  echo Missing .venv_local Python environment.
-  echo Run these first:
-  echo   python -m venv .venv_local
-  echo   .venv_local\Scripts\python -m pip install -e .
-  exit /b 1
-)
-
-"%PY%" -m tutor_agent.main tui --user-id "%USER_ID%"
+rem Backward-compatible alias for run_aim.cmd.
+call "%~dp0run_aim.cmd" %*
+exit /b %errorlevel%

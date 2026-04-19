@@ -23,8 +23,8 @@ function Ensure-Model {
         return
     }
 
-    docker exec tutor-ollama ollama show $ModelName *> $null
-    if ($LASTEXITCODE -eq 0) {
+    $models = docker exec tutor-ollama ollama list 2>$null
+    if ($LASTEXITCODE -eq 0 -and (($models -join "`n") -match [regex]::Escape($ModelName))) {
         Write-Host "Model already present: $ModelName" -ForegroundColor DarkGreen
         return
     }
@@ -52,7 +52,7 @@ switch ($Action) {
         }
     }
     "chat" {
-        docker compose @ComposeArgs run --rm --build tutor python -m tutor_agent.main tui --user-id $UserId
+        docker compose @ComposeArgs run --rm --build tutor python -m tutor_agent.main aim --user-id $UserId
     }
     "chat-plain" {
         docker compose @ComposeArgs run --rm --build tutor python -m tutor_agent.main chat --user-id $UserId
