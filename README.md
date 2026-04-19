@@ -74,18 +74,13 @@ assets/
   branding/
 
 scripts and launchers:
-  run_cli.cmd
-  run_aim.cmd
-  run_tui.cmd
   run_desktop.cmd
-  run_release.cmd
   build_desktop_exe.cmd
   build_desktop_exe.ps1
   install_desktop.cmd
   install_desktop_ui.ps1
   build_installer_exe.cmd
   build_installer_exe.ps1
-  run_installer_exe.cmd
   run_local.ps1
   run_docker.ps1
 ```
@@ -157,12 +152,9 @@ Desktop mode:
 .\.venv_local\Scripts\python -m tutor_agent.main desktop --user-id learner
 ```
 
-Or use launchers:
+Desktop launcher:
 
 ```cmd
-run_cli.cmd learner
-run_aim.cmd learner
-run_tui.cmd learner
 run_desktop.cmd learner
 ```
 
@@ -210,12 +202,6 @@ build_desktop_exe.cmd -OneFile
 Output (onefile):
 - `release\CodeElephantTutor.exe`
 
-Quick launcher for onedir build:
-
-```cmd
-run_release.cmd learner
-```
-
 ## Installer UI and Installer EXE
 
 Run installer UI script:
@@ -237,10 +223,7 @@ build_installer_exe.cmd
 ```
 
 Run installer EXE:
-
-```cmd
-run_installer_exe.cmd
-```
+- `release\CodeElephantInstaller.exe`
 
 Optional installer icon:
 - `assets/branding/installer-icon.ico`
