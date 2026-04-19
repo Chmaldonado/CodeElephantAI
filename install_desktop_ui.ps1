@@ -8,6 +8,14 @@ param(
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $false
 
+function Test-PathSafe {
+    param([string]$Path)
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return $false
+    }
+    return (Test-Path -LiteralPath $Path)
+}
+
 function Initialize-Winget {
     $wingetCmd = Get-Command winget -ErrorAction SilentlyContinue
     if (-not $wingetCmd) {
@@ -20,6 +28,19 @@ function Initialize-Winget {
     catch {
         return $false
     }
+}
+
+function Convert-ToSafeText {
+    param([string]$Text)
+    if ($null -eq $Text) {
+        return ""
+    }
+    $value = $Text -replace "[^\u0009\u000A\u000D\u0020-\u007E]", ""
+    $value = ($value -replace "\s+", " ").Trim()
+    if ([string]::IsNullOrWhiteSpace($value)) {
+        return ""
+    }
+    return $value
 }
 
 function Test-OllamaInstalled {
@@ -88,10 +109,26 @@ function Ensure-Model {
     if ($models.ContainsKey($ModelName)) {
         return
     }
-    & ollama pull $ModelName
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to pull model '$ModelName'."
+    $pullOutput = (& ollama pull $ModelName 2>&1 | Out-String)
+    if ($LASTEXITCODE -eq 0) {
+        return
     }
+
+    # Re-check once: Ollama can return noisy progress output even when model ends up present.
+    $modelsAfter = Get-InstalledModels
+    if ($modelsAfter.ContainsKey($ModelName)) {
+        return
+    }
+
+    $safe = Convert-ToSafeText -Text $pullOutput
+    if ([string]::IsNullOrWhiteSpace($safe)) {
+        $safe = "Unknown Ollama pull error."
+    }
+    throw (
+        "Failed to pull model '$ModelName'. " +
+        "Please verify internet access to Ollama model registry and try again. " +
+        "Details: $safe"
+    )
 }
 
 function Ensure-DesktopShortcut {
@@ -101,6 +138,15 @@ function Ensure-DesktopShortcut {
         [string]$WorkingDirectory
     )
     $desktop = Get-DesktopFolderPath
+    if ([string]::IsNullOrWhiteSpace($desktop)) {
+        throw "Desktop path is unavailable; cannot create shortcut."
+    }
+    if ([string]::IsNullOrWhiteSpace($TargetPath)) {
+        throw "Target executable path is empty; cannot create shortcut."
+    }
+    if ([string]::IsNullOrWhiteSpace($WorkingDirectory)) {
+        $WorkingDirectory = Split-Path -Parent $TargetPath
+    }
     $shortcutPath = Join-Path $desktop "$ShortcutName.lnk"
     $wsh = New-Object -ComObject WScript.Shell
     $shortcut = $wsh.CreateShortcut($shortcutPath)
@@ -121,14 +167,21 @@ function Get-DesktopFolderPath {
 }
 
 function Resolve-BaseDirectory {
+    if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot) -and (Test-PathSafe $PSScriptRoot)) {
+        return (Resolve-Path -LiteralPath $PSScriptRoot).Path
+    }
     $scriptPath = $MyInvocation.MyCommand.Path
     if ([string]::IsNullOrWhiteSpace($scriptPath)) {
         $scriptPath = $PSCommandPath
     }
-    if (-not [string]::IsNullOrWhiteSpace($scriptPath) -and (Test-Path $scriptPath)) {
+    if (-not [string]::IsNullOrWhiteSpace($scriptPath) -and (Test-PathSafe $scriptPath)) {
         return (Split-Path -Parent $scriptPath)
     }
-    return (Get-Location).Path
+    $cwd = (Get-Location).Path
+    if (-not [string]::IsNullOrWhiteSpace($cwd)) {
+        return $cwd
+    }
+    return "."
 }
 
 function Resolve-AppExePath {
@@ -137,6 +190,12 @@ function Resolve-AppExePath {
         [string]$TargetApp
     )
 
+    if ([string]::IsNullOrWhiteSpace($BaseDir)) {
+        $BaseDir = (Get-Location).Path
+    }
+    if ([string]::IsNullOrWhiteSpace($TargetApp)) {
+        throw "App name is empty. Re-run installer with a valid -AppName."
+    }
     $parent = Split-Path -Parent $BaseDir
     $candidates = @(
         (Join-Path $BaseDir "release\$TargetApp\$TargetApp.exe"),
@@ -146,11 +205,11 @@ function Resolve-AppExePath {
     )
 
     foreach ($candidate in $candidates) {
-        if ($candidate -and (Test-Path $candidate)) {
-            return (Resolve-Path $candidate).Path
+        if ($candidate -and (Test-PathSafe $candidate)) {
+            return (Resolve-Path -LiteralPath $candidate).Path
         }
     }
-    return $candidates[0]
+    return ($candidates | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -First 1)
 }
 
 function Get-InstallerState {
@@ -162,8 +221,8 @@ function Get-InstallerState {
     )
 
     $state = [ordered]@{
-        ExeExists            = (Test-Path $ExePath)
-        ShortcutExists       = (Test-Path $ShortcutPath)
+        ExeExists            = (Test-PathSafe $ExePath)
+        ShortcutExists       = (Test-PathSafe $ShortcutPath)
         OllamaInstalled      = (Test-OllamaInstalled)
         OllamaReady          = $false
         TutorModelInstalled  = $false
@@ -444,7 +503,11 @@ $btnInstall.Add_Click({
 
         if ($chkShortcut.Checked) {
             Write-Log "Creating desktop shortcut..."
-            Ensure-DesktopShortcut -ShortcutName $AppName -TargetPath $ExePath -WorkingDirectory (Split-Path $ExePath -Parent)
+            $workingDir = $null
+            if (-not [string]::IsNullOrWhiteSpace($ExePath)) {
+                $workingDir = Split-Path -Parent $ExePath
+            }
+            Ensure-DesktopShortcut -ShortcutName $AppName -TargetPath $ExePath -WorkingDirectory $workingDir
             Write-Log "Desktop shortcut created."
             $didAnyWork = $true
         }
@@ -453,7 +516,7 @@ $btnInstall.Add_Click({
             Write-Log "No install actions were needed/selected."
         }
 
-        if ($chkLaunch.Checked -and (Test-Path $ExePath)) {
+        if ($chkLaunch.Checked -and (Test-PathSafe $ExePath)) {
             Write-Log "Launching desktop app..."
             Start-Process $ExePath -ArgumentList "--user-id learner"
         }
