@@ -253,6 +253,13 @@ GPU mode:
 - Source docs: `data/docs/`
 - Vector store: `data/chroma/`
 - Learner memory: `data/memory.db`
+- Saved desktop chats: `data/saved_chats/`
+
+Packaged desktop builds (PyInstaller EXE) use a user-local runtime path by default:
+- Windows: `%LOCALAPPDATA%\CodeElephantTutor\data\`
+- Other OSes: `~/.codeelephanttutor/data/`
+
+This keeps release folders clean and avoids shipping personal chats/progress.
 
 Runtime DB files are intentionally excluded from git tracking.
 

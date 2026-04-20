@@ -30,3 +30,4 @@ release/
 # Runtime data (keep source docs, ignore generated stores)
 data/chroma/
 data/memory.db
+data/saved_chats/

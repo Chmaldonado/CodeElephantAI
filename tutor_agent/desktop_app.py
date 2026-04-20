@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import threading
 import tkinter as tk
 from datetime import datetime
 from pathlib import Path
+from tkinter import filedialog, messagebox
 from tkinter.scrolledtext import ScrolledText
 
 try:
@@ -54,6 +56,18 @@ def _runtime_base_dir() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
+def _runtime_user_data_dir(base_dir: Path) -> Path:
+    if not getattr(sys, "frozen", False):
+        return base_dir / "data"
+    if sys.platform.startswith("win"):
+        local_app_data = os.getenv("LOCALAPPDATA", "").strip()
+        if local_app_data:
+            base = Path(local_app_data).expanduser()
+            if str(base).strip():
+                return base / "CodeElephantTutor" / "data"
+    return Path.home() / ".codeelephanttutor" / "data"
+
+
 class AIMDesktopApp:
     HELP_TEXT = (
         "Commands:\n"
@@ -82,7 +96,9 @@ class AIMDesktopApp:
         self.receive_sound_file = self.sounds_dir / "aim-instant-message.mp3"
         self.window_icon_file = self.branding_dir / "app-icon.ico"
         self.window_icon_png = self.branding_dir / "app-icon.png"
+        self.chat_save_dir = _runtime_user_data_dir(self.base_dir) / "saved_chats"
         self._icon_photo = None
+        self.chat_entries: list[dict[str, str]] = []
 
         self.root = tk.Tk()
         self.root.title("CodeElephant Tutor - AIM")
@@ -184,6 +200,8 @@ class AIMDesktopApp:
         tk.Button(buttons, text="Code...", width=10, command=self._open_code_dialog).pack(side="left", padx=(6, 0))
         tk.Button(buttons, text="Topics", width=10, command=self._open_topics_dialog).pack(side="left", padx=(6, 0))
         tk.Button(buttons, text="Progress", width=10, command=self._open_progress_dialog).pack(side="left", padx=(6, 0))
+        tk.Button(buttons, text="Save Chat", width=10, command=self._save_chat_dialog).pack(side="left", padx=(6, 0))
+        tk.Button(buttons, text="Load Chat", width=10, command=self._load_chat_dialog).pack(side="left", padx=(6, 0))
         tk.Button(buttons, text="Help", width=10, command=self._open_help_dialog).pack(
             side="left",
             padx=(6, 0),
@@ -203,7 +221,7 @@ class AIMDesktopApp:
         self.send_button.configure(state="disabled" if busy else "normal")
         self.status_label.configure(text="Thinking..." if busy else "Ready")
 
-    def _append_line(self, speaker: str, text: str, tag: str) -> None:
+    def _append_line(self, speaker: str, text: str, tag: str, record: bool = True) -> None:
         ts = datetime.now().strftime("%H:%M")
         message = (text or "").rstrip() or ""
         segments = split_message_segments(message)
@@ -241,6 +259,8 @@ class AIMDesktopApp:
         self.transcript.insert("end", "\n", ("meta",))
         self.transcript.configure(state="disabled")
         self.transcript.see("end")
+        if record:
+            self.chat_entries.append({"speaker": speaker, "tag": tag, "text": message})
 
     def _insert_code_block(self, code: str, lang: str) -> None:
         shown_lang = lang.strip() or "text"
@@ -546,6 +566,95 @@ class AIMDesktopApp:
         tk.Button(buttons, text="Send To Tutor", width=14, command=send_to_tutor).pack(side="left")
         tk.Button(buttons, text="Run Locally", width=12, command=run_local).pack(side="left", padx=(6, 0))
         tk.Button(buttons, text="Close", width=10, command=dialog.destroy).pack(side="right")
+
+    @staticmethod
+    def _safe_filename_part(text: str) -> str:
+        raw = (text or "").strip().replace(" ", "_")
+        keep = []
+        for ch in raw:
+            if ch.isalnum() or ch in {"_", "-"}:
+                keep.append(ch)
+        return "".join(keep)[:40] or "session"
+
+    def _build_chat_payload(self) -> dict[str, object]:
+        return {
+            "version": 1,
+            "saved_at": datetime.now().isoformat(timespec="seconds"),
+            "user_id": self.user_id,
+            "entries": self.chat_entries,
+            # Preserve planner context so loaded chats continue naturally.
+            "orchestrator_history": list(self.orchestrator.history),
+        }
+
+    def _clear_transcript(self) -> None:
+        self.transcript.configure(state="normal")
+        self.transcript.delete("1.0", "end")
+        self.transcript.configure(state="disabled")
+        self.chat_entries = []
+
+    def _render_loaded_entries(self, entries: list[dict[str, str]]) -> None:
+        for entry in entries:
+            speaker = str(entry.get("speaker", "Tutor"))
+            tag = str(entry.get("tag", "tutor"))
+            text = str(entry.get("text", ""))
+            self._append_line(speaker=speaker, text=text, tag=tag, record=True)
+
+    def _save_chat_dialog(self) -> None:
+        self.chat_save_dir.mkdir(parents=True, exist_ok=True)
+        default_name = (
+            f"chat_{self._safe_filename_part(self.user_id)}_"
+            f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        )
+        target = filedialog.asksaveasfilename(
+            parent=self.root,
+            title="Save Chat",
+            initialdir=str(self.chat_save_dir),
+            initialfile=default_name,
+            defaultextension=".json",
+            filetypes=[("JSON Files", "*.json"), ("All Files", "*.*")],
+        )
+        if not target:
+            return
+        try:
+            payload = self._build_chat_payload()
+            Path(target).write_text(json.dumps(payload, ensure_ascii=True, indent=2), encoding="utf-8")
+            self._append_tutor(f"Saved chat to: {target}", play_sound=False)
+        except Exception as exc:
+            messagebox.showerror("Save Chat Failed", str(exc), parent=self.root)
+
+    def _load_chat_dialog(self) -> None:
+        self.chat_save_dir.mkdir(parents=True, exist_ok=True)
+        source = filedialog.askopenfilename(
+            parent=self.root,
+            title="Load Chat",
+            initialdir=str(self.chat_save_dir),
+            filetypes=[("JSON Files", "*.json"), ("All Files", "*.*")],
+        )
+        if not source:
+            return
+        try:
+            raw = Path(source).read_text(encoding="utf-8")
+            payload = json.loads(raw)
+            entries = payload.get("entries", [])
+            if not isinstance(entries, list):
+                raise ValueError("Invalid chat file: 'entries' must be a list.")
+
+            self._clear_transcript()
+            self._render_loaded_entries(entries)
+
+            loaded_history = payload.get("orchestrator_history", [])
+            if isinstance(loaded_history, list):
+                self.orchestrator.history = [
+                    item
+                    for item in loaded_history
+                    if isinstance(item, dict) and "role" in item and "content" in item
+                ]
+            else:
+                self.orchestrator.history = []
+
+            self._append_tutor(f"Loaded chat from: {source}", play_sound=False)
+        except Exception as exc:
+            messagebox.showerror("Load Chat Failed", str(exc), parent=self.root)
 
     def run(self) -> None:
         self.root.mainloop()

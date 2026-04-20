@@ -298,17 +298,35 @@ if ($OneFile) {
 $TargetAssets = Join-Path $ReleaseDir "assets"
 New-Item -ItemType Directory -Force -Path (Join-Path $TargetAssets "sounds") | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $TargetAssets "branding") | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $ReleaseDir "data") | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $ReleaseDir "data\docs") | Out-Null
 
 $SourceSounds = Join-Path $ProjectRoot "assets\sounds"
 $SourceBranding = Join-Path $ProjectRoot "assets\branding"
+$SourceDocs = Join-Path $ProjectRoot "data\docs"
 if (Test-Path $SourceSounds) {
     Copy-Item -Path (Join-Path $SourceSounds "*") -Destination (Join-Path $TargetAssets "sounds") -Recurse -Force
 }
 if (Test-Path $SourceBranding) {
     Copy-Item -Path (Join-Path $SourceBranding "*") -Destination (Join-Path $TargetAssets "branding") -Recurse -Force
 }
+if (Test-Path $SourceDocs) {
+    Copy-Item -Path (Join-Path $SourceDocs "*") -Destination (Join-Path $ReleaseDir "data\docs") -Recurse -Force
+}
 if ($ResolvedIconPath) {
     Copy-Item -Path $ResolvedIconPath -Destination (Join-Path $TargetAssets "branding\app-icon.ico") -Force
+}
+
+# Ensure release artifacts never include personal runtime data.
+$PersonalRuntimePaths = @(
+    (Join-Path $ReleaseDir "data\memory.db"),
+    (Join-Path $ReleaseDir "data\saved_chats"),
+    (Join-Path $ReleaseDir "data\chroma")
+)
+foreach ($runtimePath in $PersonalRuntimePaths) {
+    if (Test-Path $runtimePath) {
+        Remove-Item -LiteralPath $runtimePath -Recurse -Force -ErrorAction SilentlyContinue
+    }
 }
 
 Write-Host ""
